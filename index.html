@@ -207,6 +207,35 @@ function lighten(hex, amt){
   r=Math.min(255,Math.max(0,r)); g=Math.min(255,Math.max(0,g)); b=Math.min(255,Math.max(0,b));
   return `rgb(${r},${g},${b})`;
 }
+// ---------- Rendering helpers for a richer "sticker" look ----------
+function shadeFill(ctx, baseColor, cx=SIZE/2, cy=SIZE/2, r=190){
+  const g = ctx.createRadialGradient(cx-r*0.35, cy-r*0.4, r*0.08, cx, cy, r);
+  g.addColorStop(0, lighten(baseColor,85));
+  g.addColorStop(0.55, baseColor);
+  g.addColorStop(1, lighten(baseColor,-35));
+  return g;
+}
+function strokeCurrent(ctx, color='#14141c', width=7){
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
+}
+function dropShadow(ctx, cx, cy, rx, ry){
+  ctx.save();
+  ctx.globalAlpha=0.16; ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function blush(ctx){
+  ctx.save(); ctx.globalAlpha=0.32; ctx.fillStyle='#ff8a8a';
+  ctx.beginPath(); ctx.ellipse(SIZE/2-78, SIZE/2+38, 20,11,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(SIZE/2+78, SIZE/2+38, 20,11,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function specular(ctx, cx, cy, r){
+  ctx.save(); ctx.globalAlpha=0.9; ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
 
 // ---------- Trait definitions ----------
 // Each category: name + list of variants {name, weight, draw(ctx, ctx2Params)}
@@ -215,30 +244,40 @@ const TRAITS = {
     { name:'Dawn Gradient', weight:20, draw(ctx){
       const c1=pick(PALETTE), c2=pick(PALETTE);
       const g=ctx.createLinearGradient(0,0,SIZE,SIZE);
-      g.addColorStop(0,c1); g.addColorStop(1,c2);
+      g.addColorStop(0,lighten(c1,20)); g.addColorStop(0.55,c1); g.addColorStop(1,c2);
       ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      // soft cloud blobs
+      for(let i=0;i<5;i++){
+        ctx.save(); ctx.globalAlpha=0.10; ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.ellipse(Math.random()*SIZE, Math.random()*SIZE*0.6, 90+Math.random()*60, 30+Math.random()*20, 0,0,Math.PI*2);
+        ctx.fill(); ctx.restore();
+      }
     }},
     { name:'Radial Burst', weight:18, draw(ctx){
       const c1=pick(PALETTE);
       const g=ctx.createRadialGradient(SIZE/2,SIZE/2,20,SIZE/2,SIZE/2,SIZE*0.75);
-      g.addColorStop(0, lighten(c1,60)); g.addColorStop(1, c1);
+      g.addColorStop(0, lighten(c1,65)); g.addColorStop(1, c1);
       ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
-      ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=3;
-      for(let i=0;i<10;i++){
-        const a=(i/10)*Math.PI*2;
+      ctx.save(); ctx.globalAlpha=0.22;
+      ctx.strokeStyle='#fff'; ctx.lineWidth=4;
+      for(let i=0;i<14;i++){
+        const a=(i/14)*Math.PI*2;
         ctx.beginPath();
         ctx.moveTo(SIZE/2,SIZE/2);
         ctx.lineTo(SIZE/2+Math.cos(a)*SIZE, SIZE/2+Math.sin(a)*SIZE);
         ctx.stroke();
       }
+      ctx.restore();
     }},
     { name:'Grid Dots', weight:16, draw(ctx){
       const bg=pick(PALETTE);
-      ctx.fillStyle=lighten(bg,-40); ctx.fillRect(0,0,SIZE,SIZE);
-      ctx.fillStyle='rgba(255,255,255,.35)';
-      for(let x=20;x<SIZE;x+=32){
-        for(let y=20;y<SIZE;y+=32){
-          ctx.beginPath(); ctx.arc(x,y,2.4,0,Math.PI*2); ctx.fill();
+      const g=ctx.createLinearGradient(0,0,0,SIZE);
+      g.addColorStop(0, lighten(bg,-20)); g.addColorStop(1, lighten(bg,-55));
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      ctx.fillStyle='rgba(255,255,255,.4)';
+      for(let x=20;x<SIZE;x+=34){
+        for(let y=20;y<SIZE;y+=34){
+          ctx.beginPath(); ctx.arc(x,y,2.6,0,Math.PI*2); ctx.fill();
         }
       }
     }},
@@ -246,119 +285,151 @@ const TRAITS = {
       const c1=pick(PALETTE), c2=lighten(c1,-30);
       ctx.fillStyle=c2; ctx.fillRect(0,0,SIZE,SIZE);
       ctx.fillStyle=c1;
-      for(let i=-SIZE;i<SIZE*2;i+=28){
+      for(let i=-SIZE;i<SIZE*2;i+=30){
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(i,0); ctx.lineTo(i+16,0); ctx.lineTo(i+16-SIZE,SIZE); ctx.lineTo(i-SIZE,SIZE);
+        ctx.moveTo(i,0); ctx.lineTo(i+17,0); ctx.lineTo(i+17-SIZE,SIZE); ctx.lineTo(i-SIZE,SIZE);
         ctx.closePath(); ctx.fill();
         ctx.restore();
       }
+      ctx.save(); ctx.globalAlpha=.18; ctx.fillStyle='#000';
+      ctx.fillRect(0,SIZE*0.7,SIZE,SIZE*0.3); ctx.restore();
     }},
     { name:'Scatter Noise', weight:12, draw(ctx){
       const bg=pick(PALETTE);
-      ctx.fillStyle=lighten(bg,-50); ctx.fillRect(0,0,SIZE,SIZE);
-      for(let i=0;i<260;i++){
-        ctx.fillStyle = `rgba(255,255,255,${(Math.random()*0.25).toFixed(2)})`;
+      const g=ctx.createRadialGradient(SIZE*0.3,SIZE*0.25,10,SIZE/2,SIZE/2,SIZE*0.8);
+      g.addColorStop(0, lighten(bg,10)); g.addColorStop(1, lighten(bg,-55));
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      for(let i=0;i<220;i++){
+        ctx.fillStyle = `rgba(255,255,255,${(Math.random()*0.3).toFixed(2)})`;
         const s=Math.random()*3+1;
         ctx.fillRect(Math.random()*SIZE, Math.random()*SIZE, s, s);
       }
     }},
     { name:'Deep Void', weight:8, draw(ctx){
-      ctx.fillStyle='#101018'; ctx.fillRect(0,0,SIZE,SIZE);
-      for(let i=0;i<40;i++){
-        ctx.fillStyle=`rgba(255,255,255,${(Math.random()*0.8).toFixed(2)})`;
-        ctx.fillRect(Math.random()*SIZE, Math.random()*SIZE, 2,2);
+      const g=ctx.createRadialGradient(SIZE/2,SIZE/2,10,SIZE/2,SIZE/2,SIZE*0.8);
+      g.addColorStop(0,'#1c1c2e'); g.addColorStop(1,'#0a0a12');
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      for(let i=0;i<55;i++){
+        const s = Math.random()*2+0.6;
+        ctx.fillStyle=`rgba(255,255,255,${(Math.random()*0.9).toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(Math.random()*SIZE, Math.random()*SIZE, s,0,Math.PI*2); ctx.fill();
       }
     }}
   ],
   Body: [
     { name:'Circle', weight:26, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c; ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2+20,150,0,Math.PI*2); ctx.fill();
+      dropShadow(ctx, SIZE/2, SIZE/2+170, 125, 20);
+      ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2+20,150,0,Math.PI*2);
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2,SIZE/2+20,150); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 8);
+      blush(ctx);
     }},
     { name:'Rounded Square', weight:22, draw(ctx){
       const c=pick(PALETTE);
-      const x=SIZE/2-140,y=SIZE/2-100,w=280,h=260,r=40;
-      ctx.fillStyle=c;
+      dropShadow(ctx, SIZE/2, SIZE/2+165, 130, 20);
+      const x=SIZE/2-140,y=SIZE/2-100,w=280,h=260,r=44;
       ctx.beginPath();
       ctx.moveTo(x+r,y);
       ctx.arcTo(x+w,y,x+w,y+h,r);
       ctx.arcTo(x+w,y+h,x,y+h,r);
       ctx.arcTo(x,y+h,x,y,r);
       ctx.arcTo(x,y,x+w,y,r);
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2,SIZE/2+20,190); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 8);
+      blush(ctx);
     }},
     { name:'Hexagon', weight:18, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c; ctx.beginPath();
+      dropShadow(ctx, SIZE/2, SIZE/2+165, 125, 20);
+      ctx.beginPath();
       for(let i=0;i<6;i++){
         const a=Math.PI/3*i - Math.PI/6;
         const px=SIZE/2+Math.cos(a)*150, py=SIZE/2+20+Math.sin(a)*150;
         i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
       }
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2,SIZE/2+20,180); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 8);
+      blush(ctx);
     }},
     { name:'Diamond', weight:16, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c; ctx.beginPath();
+      dropShadow(ctx, SIZE/2, SIZE/2+175, 105, 18);
+      ctx.beginPath();
       ctx.moveTo(SIZE/2, SIZE/2-150);
       ctx.lineTo(SIZE/2+140, SIZE/2+20);
       ctx.lineTo(SIZE/2, SIZE/2+190);
       ctx.lineTo(SIZE/2-140, SIZE/2+20);
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2,SIZE/2,190); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 8);
+      blush(ctx);
     }},
     { name:'Blob', weight:12, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c; ctx.beginPath();
-      const pts=8, cx=SIZE/2, cy=SIZE/2+20, base=140;
+      dropShadow(ctx, SIZE/2, SIZE/2+165, 120, 20);
+      ctx.beginPath();
+      const pts=10, cx=SIZE/2, cy=SIZE/2+20, base=140;
       for(let i=0;i<=pts;i++){
         const a=(i/pts)*Math.PI*2;
         const r=base + Math.sin(a*3)*18 + Math.cos(a*2)*12;
         const px=cx+Math.cos(a)*r, py=cy+Math.sin(a)*r;
         i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
       }
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle=shadeFill(ctx,c,cx,cy,base+20); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 8);
+      blush(ctx);
     }}
   ],
   Eyes: [
     { name:'Round Dots', weight:28, draw(ctx){
-      ctx.fillStyle='#181818';
-      ctx.beginPath(); ctx.arc(SIZE/2-45,SIZE/2-10,16,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(SIZE/2+45,SIZE/2-10,16,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff';
-      ctx.beginPath(); ctx.arc(SIZE/2-40,SIZE/2-15,5,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(SIZE/2+50,SIZE/2-15,5,0,Math.PI*2); ctx.fill();
+      [-45,45].forEach(dx=>{
+        ctx.beginPath(); ctx.arc(SIZE/2+dx,SIZE/2-10,17,0,Math.PI*2);
+        ctx.fillStyle='#181818'; ctx.fill();
+        strokeCurrent(ctx,'#0a0a0a',2);
+      });
+      specular(ctx, SIZE/2-40, SIZE/2-16, 5);
+      specular(ctx, SIZE/2+50, SIZE/2-16, 5);
     }},
     { name:'Star Eyes', weight:18, draw(ctx){
-      ctx.fillStyle='#181818';
       [-45,45].forEach(dx=>{
         ctx.save(); ctx.translate(SIZE/2+dx, SIZE/2-10);
         ctx.beginPath();
         for(let i=0;i<5;i++){
           const a=Math.PI/2.5*i - Math.PI/2;
-          const r1=16, r2=7;
+          const r1=17, r2=7;
           ctx.lineTo(Math.cos(a)*r1, Math.sin(a)*r1);
           const a2=a+Math.PI/5;
           ctx.lineTo(Math.cos(a2)*r2, Math.sin(a2)*r2);
         }
-        ctx.closePath(); ctx.fill(); ctx.restore();
+        ctx.closePath();
+        ctx.fillStyle='#F7B32B'; ctx.fill();
+        strokeCurrent(ctx,'#181818',2.5);
+        ctx.restore();
       });
     }},
     { name:'Closed', weight:16, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=5; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(SIZE/2-58,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2-45,SIZE/2,SIZE/2-32,SIZE/2-10); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(SIZE/2+32,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2+45,SIZE/2,SIZE/2+58,SIZE/2-10); ctx.stroke();
+      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-58,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2-45,SIZE/2+2,SIZE/2-32,SIZE/2-10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(SIZE/2+32,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2+45,SIZE/2+2,SIZE/2+58,SIZE/2-10); ctx.stroke();
     }},
     { name:'Heart Eyes', weight:14, draw(ctx){
-      ctx.fillStyle='#E1614E';
       [-45,45].forEach(dx=>{
-        ctx.save(); ctx.translate(SIZE/2+dx, SIZE/2-14); ctx.scale(1.1,1.1);
+        ctx.save(); ctx.translate(SIZE/2+dx, SIZE/2-14); ctx.scale(1.2,1.2);
         ctx.beginPath();
         ctx.moveTo(0,6);
         ctx.bezierCurveTo(-14,-10,-14,4,0,16);
         ctx.bezierCurveTo(14,4,14,-10,0,6);
-        ctx.fill(); ctx.restore();
+        ctx.fillStyle='#E1614E'; ctx.fill();
+        strokeCurrent(ctx,'#8f2a1e',2);
+        ctx.restore();
       });
+      specular(ctx, SIZE/2-48, SIZE/2-20, 3);
+      specular(ctx, SIZE/2+42, SIZE/2-20, 3);
     }},
     { name:'Sleepy', weight:12, draw(ctx){
       ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
@@ -369,22 +440,28 @@ const TRAITS = {
   ],
   Mouth: [
     { name:'Smile', weight:34, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
-      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+40, 30, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+      ctx.strokeStyle='#181818'; ctx.lineWidth=7; ctx.lineCap='round';
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+38, 32, 0.12*Math.PI, 0.88*Math.PI); ctx.stroke();
+      ctx.save(); ctx.globalAlpha=0.5; ctx.fillStyle='#E1614E';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-14,SIZE/2+52); ctx.quadraticCurveTo(SIZE/2,SIZE/2+62,SIZE/2+14,SIZE/2+52);
+      ctx.quadraticCurveTo(SIZE/2,SIZE/2+58,SIZE/2-14,SIZE/2+52); ctx.fill(); ctx.restore();
     }},
     { name:'Flat', weight:26, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(SIZE/2-24,SIZE/2+55); ctx.lineTo(SIZE/2+24,SIZE/2+55); ctx.stroke();
+      ctx.strokeStyle='#181818'; ctx.lineWidth=7; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-26,SIZE/2+55); ctx.lineTo(SIZE/2+26,SIZE/2+55); ctx.stroke();
     }},
     { name:'Open Oval', weight:22, draw(ctx){
-      ctx.fillStyle='#181818';
-      ctx.beginPath(); ctx.ellipse(SIZE/2, SIZE/2+55, 20, 14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(SIZE/2, SIZE/2+55, 21, 15, 0, 0, Math.PI*2);
+      ctx.fillStyle='#7a1f1f'; ctx.fill();
+      strokeCurrent(ctx,'#181818',3);
+      ctx.beginPath(); ctx.ellipse(SIZE/2, SIZE/2+63, 12, 6, 0, 0, Math.PI*2);
+      ctx.fillStyle='#c94b4b'; ctx.fill();
     }},
     { name:'Zigzag', weight:18, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round'; ctx.lineJoin='round';
-      ctx.beginPath(); ctx.moveTo(SIZE/2-26,SIZE/2+48);
+      ctx.strokeStyle='#181818'; ctx.lineWidth=7; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-27,SIZE/2+48);
       for(let i=0;i<4;i++){
-        ctx.lineTo(SIZE/2-26+ (i+1)*13, SIZE/2+48 + (i%2===0?12:-12));
+        ctx.lineTo(SIZE/2-27+ (i+1)*13.5, SIZE/2+48 + (i%2===0?12:-12));
       }
       ctx.stroke();
     }}
@@ -393,35 +470,55 @@ const TRAITS = {
     { name:'None', weight:36, draw(){ /* nothing */ } },
     { name:'Party Hat', weight:18, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c; ctx.beginPath();
-      ctx.moveTo(SIZE/2, SIZE/2-190);
+      ctx.beginPath();
+      ctx.moveTo(SIZE/2, SIZE/2-195);
       ctx.lineTo(SIZE/2-45, SIZE/2-95);
       ctx.lineTo(SIZE/2+45, SIZE/2-95);
-      ctx.closePath(); ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2,SIZE/2-140,90); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 6);
+      [0,1,2].forEach(i=>{
+        ctx.fillStyle = i%2? '#fff':'#F7B32B';
+        ctx.beginPath(); ctx.arc(SIZE/2-30+i*30, SIZE/2-120+i*8, 6,0,Math.PI*2); ctx.fill();
+      });
       ctx.fillStyle='#fff';
-      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2-190, 8, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2-195, 9, 0, Math.PI*2); ctx.fill();
+      strokeCurrent(ctx,'#181818',2);
     }},
     { name:'Antenna', weight:16, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=4;
-      ctx.beginPath(); ctx.moveTo(SIZE/2, SIZE/2-140); ctx.lineTo(SIZE/2+30, SIZE/2-190); ctx.stroke();
-      ctx.fillStyle=pick(PALETTE);
-      ctx.beginPath(); ctx.arc(SIZE/2+30, SIZE/2-190, 10, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#181818'; ctx.lineWidth=5; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2, SIZE/2-140); ctx.quadraticCurveTo(SIZE/2+20,SIZE/2-170,SIZE/2+30, SIZE/2-190); ctx.stroke();
+      const c=pick(PALETTE);
+      ctx.beginPath(); ctx.arc(SIZE/2+30, SIZE/2-190, 11, 0, Math.PI*2);
+      ctx.fillStyle=shadeFill(ctx,c,SIZE/2+30,SIZE/2-190,11); ctx.fill();
+      strokeCurrent(ctx, lighten(c,-70), 3);
     }},
     { name:'Bowtie', weight:16, draw(ctx){
       const c=pick(PALETTE);
-      ctx.fillStyle=c;
-      ctx.beginPath();
-      ctx.moveTo(SIZE/2-30,SIZE/2+90); ctx.lineTo(SIZE/2-4,SIZE/2+100); ctx.lineTo(SIZE/2-30,SIZE/2+110); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(SIZE/2+30,SIZE/2+90); ctx.lineTo(SIZE/2+4,SIZE/2+100); ctx.lineTo(SIZE/2+30,SIZE/2+110); ctx.closePath(); ctx.fill();
+      [-1,1].forEach(s=>{
+        ctx.beginPath();
+        ctx.moveTo(SIZE/2+s*30,SIZE/2+90); ctx.lineTo(SIZE/2+s*4,SIZE/2+100); ctx.lineTo(SIZE/2+s*30,SIZE/2+110);
+        ctx.closePath();
+        ctx.fillStyle=shadeFill(ctx,c,SIZE/2+s*20,SIZE/2+100,30); ctx.fill();
+        strokeCurrent(ctx, lighten(c,-70), 4);
+      });
       ctx.fillStyle=lighten(c,-40);
-      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+100, 6, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+100, 7, 0, Math.PI*2); ctx.fill();
+      strokeCurrent(ctx,'#181818',2);
     }},
     { name:'Glasses', weight:14, draw(ctx){
-      ctx.strokeStyle='#181818'; ctx.lineWidth=5;
-      ctx.beginPath(); ctx.arc(SIZE/2-45,SIZE/2-10,22,0,Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(SIZE/2+45,SIZE/2-10,22,0,Math.PI*2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(SIZE/2-23,SIZE/2-10); ctx.lineTo(SIZE/2+23,SIZE/2-10); ctx.stroke();
+      ctx.save(); ctx.globalAlpha=0.75;
+      [-45,45].forEach(dx=>{
+        ctx.beginPath(); ctx.arc(SIZE/2+dx,SIZE/2-10,23,0,Math.PI*2);
+        ctx.fillStyle='rgba(80,190,255,0.28)'; ctx.fill();
+      });
+      ctx.restore();
+      ctx.strokeStyle='#181818'; ctx.lineWidth=5.5;
+      ctx.beginPath(); ctx.arc(SIZE/2-45,SIZE/2-10,23,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(SIZE/2+45,SIZE/2-10,23,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(SIZE/2-22,SIZE/2-10); ctx.lineTo(SIZE/2+22,SIZE/2-10); ctx.stroke();
+      specular(ctx, SIZE/2-52, SIZE/2-18, 4);
+      specular(ctx, SIZE/2+38, SIZE/2-18, 4);
     }}
   ]
 };
@@ -459,7 +556,12 @@ renderTraitList();
 
 function drawPiece(ctx, chosen){
   ctx.clearRect(0,0,SIZE,SIZE);
-  CATS.forEach(cat=>{ chosen[cat].draw(ctx); });
+  chosen.Background.draw(ctx);
+  const vg = ctx.createRadialGradient(SIZE/2,SIZE/2,SIZE*0.28,SIZE/2,SIZE/2,SIZE*0.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,'rgba(0,0,0,0.22)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,SIZE,SIZE);
+  ['Body','Eyes','Mouth','Accessory'].forEach(cat=>{ chosen[cat].draw(ctx); });
 }
 
 function pickCombo(seen){
