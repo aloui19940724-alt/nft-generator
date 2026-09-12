@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مولّد مجموعات NFT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#171722;
+    --paper:#EFEDE6;
+    --panel:#1E1E2B;
+    --panel-2:#26263A;
+    --line:#3A3A52;
+    --teal:#3FB6A8;
+    --amber:#E8A33D;
+    --coral:#E1614E;
+    --text-lo:#9A9AB0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans Arabic','Space Grotesk',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+  header{margin-bottom:22px;}
+  header h1{
+    font-family:'Space Grotesk','IBM Plex Sans Arabic',sans-serif;
+    font-size:28px;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  header p{margin:0;color:#5b5b6b;font-size:14.5px;max-width:60ch;}
+
+  .layout{display:grid;grid-template-columns:1fr;gap:18px;}
+  @media(min-width:860px){.layout{grid-template-columns:340px 1fr;}}
+
+  .card{
+    background:var(--panel);
+    color:#EDEDF5;
+    border-radius:14px;
+    padding:18px;
+  }
+  .card + .card{margin-top:16px;}
+  .card h2{
+    font-size:13px;
+    text-transform:none;
+    color:var(--teal);
+    margin:0 0 14px;
+    font-weight:600;
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);}
+
+  label{display:block;font-size:12.5px;color:var(--text-lo);margin-bottom:4px;}
+  input[type=text],input[type=number]{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:#fff;
+    border-radius:8px;
+    padding:9px 10px;
+    font-size:14px;
+    font-family:inherit;
+    margin-bottom:12px;
+  }
+  input:focus{outline:2px solid var(--teal);outline-offset:1px;}
+
+  .traitgrid{display:flex;flex-direction:column;gap:10px;margin-bottom:6px;}
+  .trait-row{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--panel-2);border-radius:8px;padding:8px 10px;
+    font-size:13px;
+  }
+  .trait-row .name{display:flex;align-items:center;gap:8px;}
+  .swatch{width:14px;height:14px;border-radius:4px;flex:none;}
+  .trait-row .cat{color:var(--text-lo);font-size:11px;}
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:9px;
+    padding:12px 16px;
+    font-size:14.5px;
+    font-weight:600;
+  }
+  .btn-main{
+    width:100%;
+    background:var(--teal);
+    color:#0e2422;
+  }
+  .btn-main:disabled{opacity:.5;cursor:default;}
+  .btn-alt{
+    width:100%;
+    background:var(--amber);
+    color:#2b1c05;
+    margin-top:10px;
+  }
+  .btn-alt:disabled{opacity:.35;cursor:default;}
+
+  .note{font-size:12px;color:var(--text-lo);margin-top:10px;line-height:1.6;}
+  .note b{color:#EDEDF5;}
+
+  .progress-wrap{
+    background:var(--panel-2);
+    border-radius:8px;
+    height:8px;
+    overflow:hidden;
+    margin:14px 0 6px;
+  }
+  .progress-bar{height:100%;width:0%;background:var(--coral);transition:width .12s;}
+  .progress-label{font-size:12px;color:var(--text-lo);}
+
+  .preview-area{background:var(--panel);border-radius:14px;padding:18px;color:#EDEDF5;}
+  .preview-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+  .preview-header h2{margin:0;font-size:15px;color:var(--teal);font-weight:600;}
+  .preview-header span{font-size:12px;color:var(--text-lo);}
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+    gap:8px;
+  }
+  .grid canvas, .grid img{
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:8px;
+    background:#0e0e16;
+    display:block;
+  }
+  .cell{position:relative;}
+  .cell .idx{
+    position:absolute;bottom:3px;left:3px;
+    font-size:9px;background:rgba(0,0,0,.55);color:#fff;
+    padding:1px 5px;border-radius:5px;
+  }
+
+  .empty-state{
+    color:var(--text-lo);font-size:13.5px;
+    padding:40px 10px;text-align:center;line-height:1.7;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>مولّد مجموعات NFT</h1>
+    <p>الأداة ترسم الطبقات بنفسها (خلفية، جسم، عيون، فم، إكسسوار) وتركّبها عشوائيًا حسب وزن الندرة، ثم تصدّر الصور مع ملفات ميتاداتا بصيغة قياسية جاهزة للرفع.</p>
+  </header>
+
+  <div class="layout">
+    <div>
+      <div class="card">
+        <h2>إعدادات المجموعة</h2>
+        <label for="colName">اسم المجموعة</label>
+        <input type="text" id="colName" value="Nebula Critters">
+        <label for="colSymbol">الرمز (Symbol)</label>
+        <input type="text" id="colSymbol" value="NBLC">
+        <label for="qty">عدد القطع المراد توليدها</label>
+        <input type="number" id="qty" value="1200" min="1" max="10000">
+        <div class="note">أقصى تنويعات فريدة ممكنة بالإعدادات الحالية: <b id="comboSpace">—</b>. أي عدد أكبر من ذلك سيتضمن تكرارًا حتميًا في التركيبات.</div>
+      </div>
+
+      <div class="card">
+        <h2>الطبقات والندرة</h2>
+        <div class="traitgrid" id="traitList"></div>
+        <div class="note">الوزن أعلى = ظهور أكثر تكرارًا في المجموعة. القيم ثابتة الآن ويمكن تعديل الكود لاحقًا لتخصيصها.</div>
+      </div>
+
+      <div class="card">
+        <button class="btn-main" id="genBtn">ولّد المجموعة</button>
+        <div class="progress-wrap"><div class="progress-bar" id="progBar"></div></div>
+        <div class="progress-label" id="progLabel">جاهز للتوليد</div>
+        <button class="btn-alt" id="downloadBtn" disabled>تحميل ZIP (صور + ميتاداتا)</button>
+        <div class="note">الملف المضغوط يحتوي على <b>images/</b> (PNG لكل قطعة) و<b>metadata/</b> (JSON لكل قطعة بصيغة name / description / image / attributes) بالإضافة إلى ملف تلخيصي للمجموعة كاملة.</div>
+      </div>
+    </div>
+
+    <div class="preview-area">
+      <div class="preview-header">
+        <h2>معاينة</h2>
+        <span id="previewCount"></span>
+      </div>
+      <div id="gridHolder">
+        <div class="empty-state">اضغط «ولّد المجموعة» لبدء التوليد. ستظهر هنا أول 60 قطعة كمعاينة.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SIZE = 512;
+const PREVIEW_LIMIT = 60;
+
+// ---------- Palette ----------
+const PALETTE = ['#F2545B','#F7B32B','#4ECDC4','#3A86FF','#B892FF','#F4A261','#2EC4B6','#FF9F9F'];
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function lighten(hex, amt){
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)+amt, g=((n>>8)&0xff)+amt, b=(n&0xff)+amt;
+  r=Math.min(255,Math.max(0,r)); g=Math.min(255,Math.max(0,g)); b=Math.min(255,Math.max(0,b));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ---------- Trait definitions ----------
+// Each category: name + list of variants {name, weight, draw(ctx, ctx2Params)}
+const TRAITS = {
+  Background: [
+    { name:'Dawn Gradient', weight:20, draw(ctx){
+      const c1=pick(PALETTE), c2=pick(PALETTE);
+      const g=ctx.createLinearGradient(0,0,SIZE,SIZE);
+      g.addColorStop(0,c1); g.addColorStop(1,c2);
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+    }},
+    { name:'Radial Burst', weight:18, draw(ctx){
+      const c1=pick(PALETTE);
+      const g=ctx.createRadialGradient(SIZE/2,SIZE/2,20,SIZE/2,SIZE/2,SIZE*0.75);
+      g.addColorStop(0, lighten(c1,60)); g.addColorStop(1, c1);
+      ctx.fillStyle=g; ctx.fillRect(0,0,SIZE,SIZE);
+      ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=3;
+      for(let i=0;i<10;i++){
+        const a=(i/10)*Math.PI*2;
+        ctx.beginPath();
+        ctx.moveTo(SIZE/2,SIZE/2);
+        ctx.lineTo(SIZE/2+Math.cos(a)*SIZE, SIZE/2+Math.sin(a)*SIZE);
+        ctx.stroke();
+      }
+    }},
+    { name:'Grid Dots', weight:16, draw(ctx){
+      const bg=pick(PALETTE);
+      ctx.fillStyle=lighten(bg,-40); ctx.fillRect(0,0,SIZE,SIZE);
+      ctx.fillStyle='rgba(255,255,255,.35)';
+      for(let x=20;x<SIZE;x+=32){
+        for(let y=20;y<SIZE;y+=32){
+          ctx.beginPath(); ctx.arc(x,y,2.4,0,Math.PI*2); ctx.fill();
+        }
+      }
+    }},
+    { name:'Diagonal Stripes', weight:14, draw(ctx){
+      const c1=pick(PALETTE), c2=lighten(c1,-30);
+      ctx.fillStyle=c2; ctx.fillRect(0,0,SIZE,SIZE);
+      ctx.fillStyle=c1;
+      for(let i=-SIZE;i<SIZE*2;i+=28){
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(i,0); ctx.lineTo(i+16,0); ctx.lineTo(i+16-SIZE,SIZE); ctx.lineTo(i-SIZE,SIZE);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }},
+    { name:'Scatter Noise', weight:12, draw(ctx){
+      const bg=pick(PALETTE);
+      ctx.fillStyle=lighten(bg,-50); ctx.fillRect(0,0,SIZE,SIZE);
+      for(let i=0;i<260;i++){
+        ctx.fillStyle = `rgba(255,255,255,${(Math.random()*0.25).toFixed(2)})`;
+        const s=Math.random()*3+1;
+        ctx.fillRect(Math.random()*SIZE, Math.random()*SIZE, s, s);
+      }
+    }},
+    { name:'Deep Void', weight:8, draw(ctx){
+      ctx.fillStyle='#101018'; ctx.fillRect(0,0,SIZE,SIZE);
+      for(let i=0;i<40;i++){
+        ctx.fillStyle=`rgba(255,255,255,${(Math.random()*0.8).toFixed(2)})`;
+        ctx.fillRect(Math.random()*SIZE, Math.random()*SIZE, 2,2);
+      }
+    }}
+  ],
+  Body: [
+    { name:'Circle', weight:26, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c; ctx.beginPath(); ctx.arc(SIZE/2,SIZE/2+20,150,0,Math.PI*2); ctx.fill();
+    }},
+    { name:'Rounded Square', weight:22, draw(ctx){
+      const c=pick(PALETTE);
+      const x=SIZE/2-140,y=SIZE/2-100,w=280,h=260,r=40;
+      ctx.fillStyle=c;
+      ctx.beginPath();
+      ctx.moveTo(x+r,y);
+      ctx.arcTo(x+w,y,x+w,y+h,r);
+      ctx.arcTo(x+w,y+h,x,y+h,r);
+      ctx.arcTo(x,y+h,x,y,r);
+      ctx.arcTo(x,y,x+w,y,r);
+      ctx.closePath(); ctx.fill();
+    }},
+    { name:'Hexagon', weight:18, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c; ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a=Math.PI/3*i - Math.PI/6;
+        const px=SIZE/2+Math.cos(a)*150, py=SIZE/2+20+Math.sin(a)*150;
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+    }},
+    { name:'Diamond', weight:16, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c; ctx.beginPath();
+      ctx.moveTo(SIZE/2, SIZE/2-150);
+      ctx.lineTo(SIZE/2+140, SIZE/2+20);
+      ctx.lineTo(SIZE/2, SIZE/2+190);
+      ctx.lineTo(SIZE/2-140, SIZE/2+20);
+      ctx.closePath(); ctx.fill();
+    }},
+    { name:'Blob', weight:12, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c; ctx.beginPath();
+      const pts=8, cx=SIZE/2, cy=SIZE/2+20, base=140;
+      for(let i=0;i<=pts;i++){
+        const a=(i/pts)*Math.PI*2;
+        const r=base + Math.sin(a*3)*18 + Math.cos(a*2)*12;
+        const px=cx+Math.cos(a)*r, py=cy+Math.sin(a)*r;
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+    }}
+  ],
+  Eyes: [
+    { name:'Round Dots', weight:28, draw(ctx){
+      ctx.fillStyle='#181818';
+      ctx.beginPath(); ctx.arc(SIZE/2-45,SIZE/2-10,16,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(SIZE/2+45,SIZE/2-10,16,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(SIZE/2-40,SIZE/2-15,5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(SIZE/2+50,SIZE/2-15,5,0,Math.PI*2); ctx.fill();
+    }},
+    { name:'Star Eyes', weight:18, draw(ctx){
+      ctx.fillStyle='#181818';
+      [-45,45].forEach(dx=>{
+        ctx.save(); ctx.translate(SIZE/2+dx, SIZE/2-10);
+        ctx.beginPath();
+        for(let i=0;i<5;i++){
+          const a=Math.PI/2.5*i - Math.PI/2;
+          const r1=16, r2=7;
+          ctx.lineTo(Math.cos(a)*r1, Math.sin(a)*r1);
+          const a2=a+Math.PI/5;
+          ctx.lineTo(Math.cos(a2)*r2, Math.sin(a2)*r2);
+        }
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      });
+    }},
+    { name:'Closed', weight:16, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=5; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-58,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2-45,SIZE/2,SIZE/2-32,SIZE/2-10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(SIZE/2+32,SIZE/2-10); ctx.quadraticCurveTo(SIZE/2+45,SIZE/2,SIZE/2+58,SIZE/2-10); ctx.stroke();
+    }},
+    { name:'Heart Eyes', weight:14, draw(ctx){
+      ctx.fillStyle='#E1614E';
+      [-45,45].forEach(dx=>{
+        ctx.save(); ctx.translate(SIZE/2+dx, SIZE/2-14); ctx.scale(1.1,1.1);
+        ctx.beginPath();
+        ctx.moveTo(0,6);
+        ctx.bezierCurveTo(-14,-10,-14,4,0,16);
+        ctx.bezierCurveTo(14,4,14,-10,0,6);
+        ctx.fill(); ctx.restore();
+      });
+    }},
+    { name:'Sleepy', weight:12, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
+      [-45,45].forEach(dx=>{
+        ctx.beginPath(); ctx.moveTo(SIZE/2+dx-16, SIZE/2-8); ctx.lineTo(SIZE/2+dx+16, SIZE/2-8); ctx.stroke();
+      });
+    }}
+  ],
+  Mouth: [
+    { name:'Smile', weight:34, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+40, 30, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+    }},
+    { name:'Flat', weight:26, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-24,SIZE/2+55); ctx.lineTo(SIZE/2+24,SIZE/2+55); ctx.stroke();
+    }},
+    { name:'Open Oval', weight:22, draw(ctx){
+      ctx.fillStyle='#181818';
+      ctx.beginPath(); ctx.ellipse(SIZE/2, SIZE/2+55, 20, 14, 0, 0, Math.PI*2); ctx.fill();
+    }},
+    { name:'Zigzag', weight:18, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=6; ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.beginPath(); ctx.moveTo(SIZE/2-26,SIZE/2+48);
+      for(let i=0;i<4;i++){
+        ctx.lineTo(SIZE/2-26+ (i+1)*13, SIZE/2+48 + (i%2===0?12:-12));
+      }
+      ctx.stroke();
+    }}
+  ],
+  Accessory: [
+    { name:'None', weight:36, draw(){ /* nothing */ } },
+    { name:'Party Hat', weight:18, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c; ctx.beginPath();
+      ctx.moveTo(SIZE/2, SIZE/2-190);
+      ctx.lineTo(SIZE/2-45, SIZE/2-95);
+      ctx.lineTo(SIZE/2+45, SIZE/2-95);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2-190, 8, 0, Math.PI*2); ctx.fill();
+    }},
+    { name:'Antenna', weight:16, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(SIZE/2, SIZE/2-140); ctx.lineTo(SIZE/2+30, SIZE/2-190); ctx.stroke();
+      ctx.fillStyle=pick(PALETTE);
+      ctx.beginPath(); ctx.arc(SIZE/2+30, SIZE/2-190, 10, 0, Math.PI*2); ctx.fill();
+    }},
+    { name:'Bowtie', weight:16, draw(ctx){
+      const c=pick(PALETTE);
+      ctx.fillStyle=c;
+      ctx.beginPath();
+      ctx.moveTo(SIZE/2-30,SIZE/2+90); ctx.lineTo(SIZE/2-4,SIZE/2+100); ctx.lineTo(SIZE/2-30,SIZE/2+110); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(SIZE/2+30,SIZE/2+90); ctx.lineTo(SIZE/2+4,SIZE/2+100); ctx.lineTo(SIZE/2+30,SIZE/2+110); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=lighten(c,-40);
+      ctx.beginPath(); ctx.arc(SIZE/2, SIZE/2+100, 6, 0, Math.PI*2); ctx.fill();
+    }},
+    { name:'Glasses', weight:14, draw(ctx){
+      ctx.strokeStyle='#181818'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(SIZE/2-45,SIZE/2-10,22,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(SIZE/2+45,SIZE/2-10,22,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(SIZE/2-23,SIZE/2-10); ctx.lineTo(SIZE/2+23,SIZE/2-10); ctx.stroke();
+    }}
+  ]
+};
+
+const CATS = Object.keys(TRAITS);
+
+function comboSpace(){
+  return CATS.reduce((acc,cat)=>acc*TRAITS[cat].length, 1);
+}
+
+function weightedPick(list){
+  const total = list.reduce((s,v)=>s+v.weight,0);
+  let r = Math.random()*total;
+  for(const item of list){
+    if(r < item.weight) return item;
+    r -= item.weight;
+  }
+  return list[list.length-1];
+}
+
+function renderTraitList(){
+  const holder = document.getElementById('traitList');
+  holder.innerHTML='';
+  CATS.forEach(cat=>{
+    TRAITS[cat].forEach(v=>{
+      const row = document.createElement('div');
+      row.className='trait-row';
+      row.innerHTML = `<div class="name"><span class="swatch" style="background:${pick(PALETTE)}"></span>${v.name}</div><div class="cat">${cat} · وزن ${v.weight}</div>`;
+      holder.appendChild(row);
+    });
+  });
+  document.getElementById('comboSpace').textContent = comboSpace().toLocaleString('en-US');
+}
+renderTraitList();
+
+function drawPiece(ctx, chosen){
+  ctx.clearRect(0,0,SIZE,SIZE);
+  CATS.forEach(cat=>{ chosen[cat].draw(ctx); });
+}
+
+function pickCombo(seen){
+  let attempts=0;
+  while(attempts < 20){
+    const chosen = {};
+    CATS.forEach(cat=>{ chosen[cat] = weightedPick(TRAITS[cat]); });
+    const sig = CATS.map(c=>chosen[c].name).join('|');
+    if(!seen.has(sig)){
+      seen.add(sig);
+      return chosen;
+    }
+    attempts++;
+  }
+  // give up dedup after enough attempts, allow duplicate
+  const chosen = {};
+  CATS.forEach(cat=>{ chosen[cat] = weightedPick(TRAITS[cat]); });
+  return chosen;
+}
+
+let generated = []; // { blob, meta }
+
+async function generateCollection(){
+  const qty = Math.max(1, Math.min(10000, parseInt(document.getElementById('qty').value,10) || 1));
+  const colName = document.getElementById('colName').value.trim() || 'My Collection';
+  const colSymbol = document.getElementById('colSymbol').value.trim() || 'COL';
+
+  const genBtn = document.getElementById('genBtn');
+  const dlBtn = document.getElementById('downloadBtn');
+  genBtn.disabled = true; dlBtn.disabled = true;
+  generated = [];
+
+  const gridHolder = document.getElementById('gridHolder');
+  gridHolder.innerHTML = '<div class="grid" id="grid"></div>';
+  const grid = document.getElementById('grid');
+  document.getElementById('previewCount').textContent = '';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE; canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  const seen = new Set();
+  const progBar = document.getElementById('progBar');
+  const progLabel = document.getElementById('progLabel');
+
+  for(let i=1;i<=qty;i++){
+    const chosen = pickCombo(seen);
+    drawPiece(ctx, chosen);
+
+    const blob = await new Promise(res=>canvas.toBlob(res,'image/png'));
+    const attributes = CATS.map(cat=>({trait_type:cat, value:chosen[cat].name}));
+    const meta = {
+      name: `${colName} #${i}`,
+      description: `قطعة مولّدة إجرائيًا ضمن مجموعة ${colName}.`,
+      image: `images/${i}.png`,
+      attributes
+    };
+    generated.push({ blob, meta, index:i });
+
+    if(i <= PREVIEW_LIMIT){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(blob);
+      cell.appendChild(img);
+      const idx = document.createElement('div');
+      idx.className='idx'; idx.textContent = '#'+i;
+      cell.appendChild(idx);
+      grid.appendChild(cell);
+    }
+
+    if(i % 15 === 0 || i === qty){
+      const pct = Math.round((i/qty)*100);
+      progBar.style.width = pct+'%';
+      progLabel.textContent = `جارٍ التوليد… ${i.toLocaleString('en-US')} / ${qty.toLocaleString('en-US')}`;
+      await new Promise(r=>setTimeout(r,0)); // let UI breathe
+    }
+  }
+
+  progLabel.textContent = `تم توليد ${qty.toLocaleString('en-US')} قطعة`;
+  document.getElementById('previewCount').textContent = `عرض أول ${Math.min(PREVIEW_LIMIT,qty)} من ${qty.toLocaleString('en-US')}`;
+  genBtn.disabled = false;
+  dlBtn.disabled = false;
+}
+
+async function downloadZip(){
+  const dlBtn = document.getElementById('downloadBtn');
+  dlBtn.disabled = true;
+  const originalText = dlBtn.textContent;
+  dlBtn.textContent = 'جارٍ تجهيز الملف…';
+
+  const zip = new JSZip();
+  const imagesFolder = zip.folder('images');
+  const metaFolder = zip.folder('metadata');
+  const allMeta = [];
+
+  for(const item of generated){
+    imagesFolder.file(`${item.index}.png`, item.blob);
+    metaFolder.file(`${item.index}.json`, JSON.stringify(item.meta, null, 2));
+    allMeta.push(item.meta);
+  }
+  zip.file('collection.json', JSON.stringify({
+    name: document.getElementById('colName').value.trim() || 'My Collection',
+    symbol: document.getElementById('colSymbol').value.trim() || 'COL',
+    total_supply: generated.length,
+    items: allMeta
+  }, null, 2));
+
+  const blob = await zip.generateAsync({type:'blob'}, meta=>{
+    dlBtn.textContent = `جارٍ الضغط… ${Math.round(meta.percent)}%`;
+  });
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const nameSlug = (document.getElementById('colSymbol').value.trim() || 'collection').replace(/\s+/g,'_');
+  a.download = `${nameSlug}_nft_collection.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  dlBtn.textContent = originalText;
+  dlBtn.disabled = false;
+}
+
+document.getElementById('genBtn').addEventListener('click', generateCollection);
+document.getElementById('downloadBtn').addEventListener('click', downloadZip);
+</script>
+</body>
+</html>
